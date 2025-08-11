@@ -31,6 +31,24 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
   const [uploadError, setUploadError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
+  // Click outside to close functionality
+  const modalRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [isOpen, onClose])
+
   // Load existing preview image when modal opens
   React.useEffect(() => {
     if (isOpen && story.id) {
@@ -192,18 +210,15 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
   return (
     <div className="publish-modal-overlay">
       <div className="publish-modal-container">
-        <Card className="publish-modal-card">
-          {/* Header */}
-          <div className="publish-modal-header">
-            <h2 className="publish-modal-title">Story Preview</h2>
-            <Button
-              onClick={onClose}
-              data-style="ghost"
-              className="publish-modal-close"
-            >
-              <CloseIcon className="tiptap-button-icon" />
-            </Button>
-          </div>
+        <Card ref={modalRef} className="publish-modal-card">
+          {/* Close button moved to top-right corner */}
+          <Button
+            onClick={onClose}
+            data-style="ghost"
+            className="publish-modal-close-floating"
+          >
+            <CloseIcon className="tiptap-button-icon" />
+          </Button>
 
           <div className="publish-modal-content">
             {/* Left side - Preview */}
@@ -241,9 +256,14 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
                     ) : (
                       <Button 
                         data-style="secondary" 
-                        className="change-image-btn"
+                        className="add-image-btn"
                         onClick={() => fileInputRef.current?.click()}
                       >
+                        <svg className="image-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21,15 16,10 5,21"/>
+                        </svg>
                         Add preview image
                       </Button>
                     )}
@@ -268,12 +288,18 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
               
               <h3 className="story-preview-title">{story.title || "Untitled Story"}</h3>
               
-              <Input
-                placeholder="Write a preview subtitle..."
-                value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
-                className="subtitle-input"
-              />
+              <div className="subtitle-field">
+                <label className="subtitle-label">Subtitle</label>
+                <Input
+                  placeholder="Add a compelling subtitle to draw readers in..."
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  className="subtitle-input"
+                />
+                <div className="subtitle-hint">
+                  A good subtitle provides context and entices readers to continue
+                </div>
+              </div>
               
               <p className="preview-note">
                 <strong>Note:</strong> Changes here will affect how your story appears in public 
@@ -283,12 +309,54 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
 
             {/* Right side - Publishing options */}
             <div className="publish-modal-options">
-              <div className="publishing-to">
-                <h4>Publishing to: <span className="author-name">Ly Tykea</span></h4>
+              <div className="publish-header">
+                <h3>Ready to Publish?</h3>
+                <p>Share your story with the world</p>
+              </div>
+
+              <div className="publish-details">
+                <div className="detail-item">
+                  <div className="detail-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  <div className="detail-content">
+                    <span className="detail-label">Publishing to</span>
+                    <span className="detail-value">Ly Tykea</span>
+                  </div>
+                </div>
+
+                <div className="detail-item">
+                  <div className="detail-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12,6 12,12 16,14"/>
+                    </svg>
+                  </div>
+                  <div className="detail-content">
+                    <span className="detail-label">Publication time</span>
+                    <span className="detail-value">Immediately</span>
+                  </div>
+                </div>
+
+                <div className="detail-item">
+                  <div className="detail-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </div>
+                  <div className="detail-content">
+                    <span className="detail-label">Visibility</span>
+                    <span className="detail-value">Public</span>
+                  </div>
+                </div>
               </div>
 
               <div className="publish-info">
-                <p>Your story will be published and visible to all readers.</p>
+                <p>Your story will be published and visible to all readers immediately.</p>
               </div>
 
               {/* Action buttons */}
@@ -298,7 +366,14 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
                   disabled={isPublishing || isUploadingImage}
                   className="publish-btn"
                 >
-                  {isPublishing ? "Publishing..." : "Publish now"}
+                  {isPublishing ? (
+                    <>
+                      <div className="publish-spinner"></div>
+                      Publishing...
+                    </>
+                  ) : (
+                    "Publish Story"
+                  )}
                 </Button>
                 <Button 
                   data-style="ghost" 
