@@ -648,6 +648,65 @@
   }
 }
 
+/* Story URL Preview */
+.story-url-preview {
+  margin-bottom: 24px;
+}
+
+.url-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(75, 85, 99, 1);
+  margin-bottom: 8px;
+  
+  .dark & {
+    color: var(--tt-theme-text);
+  }
+}
+
+.url-display {
+  padding: 12px 16px;
+  background: rgba(249, 250, 251, 1);
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  word-break: break-all;
+  
+  .dark & {
+    background: var(--tt-gray-dark-200);
+    border-color: var(--tt-gray-dark-400);
+  }
+}
+
+.url-base {
+  color: rgba(107, 114, 128, 1);
+  
+  .dark & {
+    color: var(--tt-gray-dark-500);
+  }
+}
+
+.url-slug {
+  color: rgba(59, 130, 246, 1);
+  font-weight: 500;
+  
+  .dark & {
+    color: rgba(96, 165, 250, 1);
+  }
+}
+
+.url-hint {
+  font-size: 12px;
+  color: rgba(156, 163, 175, 1);
+  margin-top: 6px;
+  
+  .dark & {
+    color: var(--tt-gray-dark-500);
+  }
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .publish-modal-overlay {

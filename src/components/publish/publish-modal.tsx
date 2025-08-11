@@ -5,7 +5,7 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Input } from "@/components/tiptap-ui-primitive/input"
 import { Card } from "@/components/tiptap-ui-primitive/card"
 import { CloseIcon } from "@/components/tiptap-icons/close-icon"
-import { uploadStoryImage, deleteStoryImage, supabase } from "@/lib/supabase"
+import { uploadStoryImage, deleteStoryImage, supabase, generateSlug, generateUniqueSlug } from "@/lib/supabase"
 
 interface PublishModalProps {
   isOpen: boolean
@@ -21,6 +21,7 @@ interface PublishModalProps {
 interface PublishOptions {
   subtitle?: string
   previewImage?: string
+  slug?: string
 }
 
 export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModalProps) {
@@ -29,6 +30,7 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
   const [isPublishing, setIsPublishing] = React.useState(false)
   const [isUploadingImage, setIsUploadingImage] = React.useState(false)
   const [uploadError, setUploadError] = React.useState<string | null>(null)
+  const [generatedSlug, setGeneratedSlug] = React.useState<string>("")
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   // Click outside to close functionality
@@ -49,18 +51,26 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
     }
   }, [isOpen, onClose])
 
-  // Load existing preview image when modal opens
+  // Generate slug when modal opens or title changes
+  React.useEffect(() => {
+    if (isOpen && story.title) {
+      const baseSlug = generateSlug(story.title)
+      setGeneratedSlug(baseSlug)
+    }
+  }, [isOpen, story.title])
+
+  // Load existing data when modal opens
   React.useEffect(() => {
     if (isOpen && story.id) {
-      loadExistingPreviewImage()
+      loadExistingData()
     }
   }, [isOpen, story.id])
 
-  const loadExistingPreviewImage = async () => {
+  const loadExistingData = async () => {
     try {
       const { data, error } = await supabase
         .from('stories')
-        .select('preview_image, subtitle')
+        .select('preview_image, subtitle, slug')
         .eq('id', story.id)
         .single()
 
@@ -72,8 +82,11 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
       if (data.subtitle) {
         setSubtitle(data.subtitle)
       }
+      if (data.slug) {
+        setGeneratedSlug(data.slug)
+      }
     } catch (error) {
-      console.error('Failed to load existing preview image:', error)
+      console.error('Failed to load existing data:', error)
     }
   }
 
@@ -185,17 +198,29 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
   const handlePublish = async () => {
     setIsPublishing(true)
     try {
-      // Save subtitle to database if changed
-      if (subtitle) {
-        await supabase
-          .from('stories')
-          .update({ subtitle })
-          .eq('id', story.id)
+      // Generate unique slug
+      const uniqueSlug = await generateUniqueSlug(story.title, story.id)
+      
+      // Save subtitle and slug to database if changed
+      const updates: any = {
+        published: true,
+        published_at: new Date().toISOString(),
+        slug: uniqueSlug
       }
+      
+      if (subtitle) {
+        updates.subtitle = subtitle
+      }
+      
+      await supabase
+        .from('stories')
+        .update(updates)
+        .eq('id', story.id)
 
       await onPublish({
         subtitle,
         previewImage: previewImage || undefined,
+        slug: uniqueSlug,
       })
       onClose()
     } catch (error) {
@@ -298,6 +323,18 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
                 />
                 <div className="subtitle-hint">
                   A good subtitle provides context and entices readers to continue
+                </div>
+              </div>
+
+              {/* Story URL Preview */}
+              <div className="story-url-preview">
+                <label className="url-label">Story URL</label>
+                <div className="url-display">
+                  <span className="url-base">yoursite.com/story/</span>
+                  <span className="url-slug">{generatedSlug || 'story-slug'}</span>
+                </div>
+                <div className="url-hint">
+                  URL is automatically generated from your title
                 </div>
               </div>
               

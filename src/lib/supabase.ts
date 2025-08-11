@@ -15,6 +15,7 @@ export type Database = {
           content: any
           subtitle?: string
           preview_image?: string
+          slug?: string
           published: boolean
           published_at?: string
           user_id: string | null
@@ -27,6 +28,7 @@ export type Database = {
           content?: any
           subtitle?: string
           preview_image?: string
+          slug?: string
           published?: boolean
           published_at?: string
           user_id?: string | null
@@ -39,6 +41,7 @@ export type Database = {
           content?: any
           subtitle?: string
           preview_image?: string
+          slug?: string
           published?: boolean
           published_at?: string
           user_id?: string | null
@@ -46,6 +49,71 @@ export type Database = {
           updated_at?: string
         }
       }
+    }
+  }
+}
+
+// Slug generation utility
+export const generateSlug = (title: string): string => {
+  return title
+    .toLowerCase()
+    .trim()
+    // Replace spaces with hyphens
+    .replace(/\s+/g, '-')
+    // Remove special characters except hyphens
+    .replace(/[^a-z0-9-]/g, '')
+    // Remove multiple consecutive hyphens
+    .replace(/-+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '')
+    // Limit length to 100 characters
+    .substring(0, 100)
+}
+
+// Check if slug is unique and generate a unique one if needed
+export const generateUniqueSlug = async (title: string, excludeId?: string): Promise<string> => {
+  const baseSlug = generateSlug(title)
+  
+  if (!baseSlug) {
+    // Fallback if title generates empty slug
+    return `story-${Date.now()}`
+  }
+  
+  let slug = baseSlug
+  let counter = 1
+  
+  while (true) {
+    // Check if slug exists
+    let query = supabase
+      .from('stories')
+      .select('id')
+      .eq('slug', slug)
+      .eq('published', true) // Only check against published stories
+    
+    if (excludeId) {
+      query = query.neq('id', excludeId)
+    }
+    
+    const { data, error } = await query
+    
+    if (error) {
+      console.error('Error checking slug uniqueness:', error)
+      // If error, add timestamp to make it unique
+      return `${baseSlug}-${Date.now()}`
+    }
+    
+    if (!data || data.length === 0) {
+      // Slug is unique
+      return slug
+    }
+    
+    // Slug exists, try with counter
+    slug = `${baseSlug}-${counter}`
+    counter++
+    
+    // Prevent infinite loop
+    if (counter > 100) {
+      return `${baseSlug}-${Date.now()}`
     }
   }
 }
