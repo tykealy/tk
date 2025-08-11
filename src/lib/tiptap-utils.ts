@@ -1,6 +1,7 @@
 import type { Node as TiptapNode } from "@tiptap/pm/model"
 import { NodeSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
+import { supabase } from './supabase'
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -262,17 +263,41 @@ export const handleImageUpload = async (
     )
   }
 
-  // For demo/testing: Simulate upload progress. In production, replace the following code
-  // with your own upload implementation.
-  for (let progress = 0; progress <= 100; progress += 10) {
-    if (abortSignal?.aborted) {
-      throw new Error("Upload cancelled")
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    onProgress?.({ progress })
-  }
+  try {
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const filePath = `story-images/${fileName}`
 
-  return "/images/tiptap-ui-placeholder-image.jpg"
+    // Simulate progress for UI feedback
+    onProgress?.({ progress: 25 })
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('story-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (error) {
+      throw new Error(`Upload failed: ${error.message}`)
+    }
+
+    onProgress?.({ progress: 75 })
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('story-images')
+      .getPublicUrl(filePath)
+
+    onProgress?.({ progress: 100 })
+
+    return publicUrl
+  } catch (error) {
+    console.error('Image upload error:', error)
+    throw error
+  }
 }
 
 type ProtocolOptions = {

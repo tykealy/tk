@@ -61,7 +61,7 @@ body,
 }
 
 .simple-editor-content {
-  max-width: 648px;
+  max-width: 900px;
   width: 100%;
   margin: 0 auto;
   height: 100%;
@@ -70,13 +70,91 @@ body,
   flex: 1;
 }
 
-.simple-editor-content .tiptap.ProseMirror.simple-editor {
-  flex: 1;
-  padding: 3rem 3rem 30vh;
+/* Title styling - matches H1 from TipTap exactly */
+.story-title-container {
+  padding: 3rem 3rem 0; /* Same horizontal padding as editor */
 }
 
+.story-title-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: "DM Sans", sans-serif;
+  font-size: 1.5em; /* Same as TipTap H1 */
+  font-weight: 700; /* Same as TipTap H1 */
+  line-height: 1.2;
+  color: var(--tt-theme-text);
+  margin-bottom: 1.5rem;
+  
+  &::placeholder {
+    color: var(--tt-gray-light-400);
+    opacity: 0.6;
+  }
+  
+  .dark & {
+    &::placeholder {
+      color: var(--tt-gray-dark-400);
+    }
+  }
+}
+
+/* Editor content - adjusted padding to account for title */
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  flex: 1;
+  padding: 0 3rem 30vh; /* No top padding since title handles it */
+}
+
+/* Save status indicator - prevent layout shifts */
+.save-status-indicator {
+  min-width: 140px; /* Enough space for longest expected text */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--tt-gray-light-500);
+  
+  .dark & {
+    color: var(--tt-gray-dark-500);
+  }
+}
+
+/* Mobile responsive */
 @media screen and (max-width: 480px) {
+  .story-title-container {
+    padding: 1rem 1.5rem 0; /* Same horizontal padding as mobile editor */
+  }
+  
+  .story-title-input {
+    font-size: 1.5em; /* Keep same size as H1 even on mobile */
+    margin-bottom: 1rem;
+  }
+  
   .simple-editor-content .tiptap.ProseMirror.simple-editor {
-    padding: 1rem 1.5rem 30vh;
+    padding: 0 1.5rem 30vh; /* No top padding since title handles it */
+  }
+}
+
+/* Publish button styling */
+.publish-toolbar-btn {
+  background: var(--tt-green-500) !important;
+  color: white !important;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  opacity: 1;
+  visibility: visible;
+  
+  &:hover {
+    background: var(--tt-green-600) !important;
+  }
+  
+  &:focus {
+    background: var(--tt-green-600) !important;
+    outline: 2px solid var(--tt-green-300);
+    outline-offset: 2px;
   }
 }

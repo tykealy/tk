@@ -63,9 +63,15 @@ import { LinkIcon } from "@/components/tiptap-icons/link-icon"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useWindowSize } from "@/hooks/use-window-size"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
+import { useStory } from "@/hooks/use-story"
+import { useAutoSave } from "@/hooks/use-auto-save"
+import { useThrottledCallback } from "@/hooks/use-throttled-callback"
+import { useRouter, useSearchParams } from "next/navigation"
 
 // --- Components ---
 import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
+import { PublishModal } from "@/components/publish/publish-modal"
+import "@/components/publish/publish-modal.scss"
 
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
@@ -79,10 +85,12 @@ const MainToolbarContent = ({
   onHighlighterClick,
   onLinkClick,
   isMobile,
+  onPublishClick,
 }: {
   onHighlighterClick: () => void
   onLinkClick: () => void
   isMobile: boolean
+  onPublishClick: () => void
 }) => {
   return (
     <>
@@ -140,15 +148,21 @@ const MainToolbarContent = ({
       <ToolbarSeparator />
 
       <ToolbarGroup>
-        <ImageUploadButton text="Add" />
+        <ImageUploadButton />
       </ToolbarGroup>
 
       <Spacer />
 
-      {isMobile && <ToolbarSeparator />}
-
+      {/* Theme toggle and Publish button */}
       <ToolbarGroup>
         <ThemeToggle />
+        <Button 
+          onClick={onPublishClick} 
+          data-style="default" 
+          className="publish-toolbar-btn"
+        >
+          Publish
+        </Button>
       </ToolbarGroup>
     </>
   )
@@ -183,13 +197,67 @@ const MobileToolbarContent = ({
   </>
 )
 
-export function SimpleEditor() {
+interface SimpleEditorProps {
+  storyId?: string
+  onStoryChange?: (story: any) => void
+}
+
+export function SimpleEditor({ storyId, onStoryChange }: SimpleEditorProps) {
   const isMobile = useIsMobile()
   const { height } = useWindowSize()
   const [mobileView, setMobileView] = React.useState<
     "main" | "highlighter" | "link"
   >("main")
   const toolbarRef = React.useRef<HTMLDivElement>(null)
+  
+  // Story management
+  const { story, loading, createStory, saveStory } = useStory(storyId)
+  const [currentStoryId, setCurrentStoryId] = React.useState(storyId)
+  const [storyCreated, setStoryCreated] = React.useState(false)
+  
+  // Title state
+  const [title, setTitle] = React.useState("")
+  const [titleSaving, setTitleSaving] = React.useState(false)
+
+  // Update title when story loads
+  React.useEffect(() => {
+    if (story?.title) {
+      setTitle(story.title)
+    }
+  }, [story?.title])
+
+  // Throttled title save function
+  const saveTitle = React.useCallback(async (newTitle: string) => {
+    if (!currentStoryId || !newTitle.trim()) return
+    
+    setTitleSaving(true)
+    try {
+      await saveStory({ title: newTitle.trim() })
+    } catch (error) {
+      console.error('Failed to save title:', error)
+    } finally {
+      setTitleSaving(false)
+    }
+  }, [currentStoryId, saveStory])
+
+  const throttledSaveTitle = useThrottledCallback(saveTitle, 1000)
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value
+    setTitle(newTitle)
+    if (newTitle.trim()) {
+      throttledSaveTitle(newTitle)
+    }
+  }
+
+  // Initialize content - empty for new stories, actual content for existing stories
+  const initialContent = React.useMemo(() => {
+    if (story?.content) {
+      return story.content
+    }
+    // Start with empty content for new stories
+    return { type: "doc", content: [{ type: "paragraph" }] }
+  }, [story?.content])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -229,8 +297,41 @@ export function SimpleEditor() {
         onError: (error) => console.error("Upload failed:", error),
       }),
     ],
-    content,
+    content: initialContent,
   })
+
+  // Auto-save functionality
+  const { isSaving, lastSaved, hasUnsavedChanges } = useAutoSave({
+    editor,
+    storyId: currentStoryId,
+    enabled: !!currentStoryId,
+  })
+
+  // Update editor content when story loads
+  React.useEffect(() => {
+    if (editor && story?.content && editor.getJSON() !== story.content) {
+      // Defer the content update to avoid flushSync during render
+      queueMicrotask(() => {
+        editor.commands.setContent(story.content)
+      })
+    }
+  }, [editor, story?.content])
+
+  // Create new story if none provided (only once)
+  React.useEffect(() => {
+    if (!storyId && !loading && !currentStoryId && !storyCreated) {
+      setStoryCreated(true)
+      createStory({
+        title: 'Untitled Story',
+        content: { type: "doc", content: [{ type: "paragraph" }] }, // Empty content
+      }).then((newStory) => {
+        setCurrentStoryId(newStory.id)
+        if (onStoryChange) {
+          onStoryChange(newStory)
+        }
+      }).catch(console.error)
+    }
+  }, [storyId, loading, currentStoryId, createStory, onStoryChange, storyCreated])
 
   const rect = useCursorVisibility({
     editor,
@@ -242,6 +343,54 @@ export function SimpleEditor() {
       setMobileView("main")
     }
   }, [isMobile, mobileView])
+
+  // Publish modal state
+  const [isPublishModalOpen, setIsPublishModalOpen] = React.useState(false)
+
+  const handlePublish = async (options: any) => {
+    if (!currentStoryId) {
+      alert('No story to publish. Please save your story first.')
+      return
+    }
+    
+    console.log('Publishing with options:', options) // Debug log
+    
+    try {
+      // Save the current content first
+      const currentContent = editor?.getJSON()
+      if (currentContent) {
+        await saveStory({ content: currentContent })
+      }
+
+      // Update the story with publishing information
+      const publishData = {
+        subtitle: options.subtitle,
+        preview_image: options.previewImage,
+        published: true,
+        published_at: new Date().toISOString(),
+      }
+      
+      console.log('Saving publish data:', publishData) // Debug log
+      
+      const result = await saveStory(publishData)
+      console.log('Save result:', result) // Debug log
+      
+      alert('🎉 Story published successfully!')
+    } catch (error) {
+      console.error('Failed to publish story:', error)
+      alert('❌ Failed to publish story. Please try again.')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="simple-editor-wrapper">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-gray-500">Loading story...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="simple-editor-wrapper">
@@ -256,10 +405,20 @@ export function SimpleEditor() {
               : {}),
           }}
         >
+          {/* Save status indicator */}
+          <div className="save-status-indicator">
+            {(isSaving || titleSaving) && <span>Saving...</span>}
+            {!isSaving && !titleSaving && hasUnsavedChanges && <span>Unsaved changes</span>}
+            {!isSaving && !titleSaving && !hasUnsavedChanges && lastSaved && (
+              <span>Saved {lastSaved.toLocaleTimeString()}</span>
+            )}
+          </div>
+
           {mobileView === "main" ? (
             <MainToolbarContent
               onHighlighterClick={() => setMobileView("highlighter")}
               onLinkClick={() => setMobileView("link")}
+              onPublishClick={() => setIsPublishModalOpen(true)}
               isMobile={isMobile}
             />
           ) : (
@@ -270,12 +429,38 @@ export function SimpleEditor() {
           )}
         </Toolbar>
 
-        <EditorContent
-          editor={editor}
-          role="presentation"
-          className="simple-editor-content"
-        />
+        <div className="simple-editor-content">
+          {/* Story Title */}
+          <div className="story-title-container">
+            <input
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              placeholder="Untitled Story"
+              className="story-title-input"
+              spellCheck={false}
+            />
+          </div>
+          
+          <EditorContent
+            editor={editor}
+            role="presentation"
+            className="simple-editor-prosemirror-container"
+          />
+        </div>
       </EditorContext.Provider>
+
+      {/* Publish Modal */}
+      <PublishModal
+        isOpen={isPublishModalOpen}
+        onClose={() => setIsPublishModalOpen(false)}
+        story={{ 
+          title, 
+          content: editor?.getJSON(),
+          id: currentStoryId || '' 
+        }}
+        onPublish={handlePublish}
+      />
     </div>
   )
 }
