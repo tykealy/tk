@@ -139,7 +139,6 @@ body,
 /* Publish button styling */
 .publish-toolbar-btn {
   background: var(--tt-green-500) !important;
-  color: white !important;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 6px;
@@ -147,6 +146,13 @@ body,
   font-size: 0.875rem;
   opacity: 1;
   visibility: visible;
+  
+  /* Fix text color in light mode */
+  body:not(.dark) & {
+    color: rgba(17, 24, 39, 1) !important;
+  }
+  
+
   
   &:hover {
     background: var(--tt-green-600) !important;
@@ -157,4 +163,16 @@ body,
     outline: 2px solid var(--tt-green-300);
     outline-offset: 2px;
   }
+}
+
+/* Tailwind dark mode approach */
+@media (prefers-color-scheme: dark) {
+  .publish-toolbar-btn {
+    color: #fff !important;
+  }
+}
+
+/* Or class-based dark mode */
+:root.dark .publish-toolbar-btn {
+  color: #fff !important;
 }
