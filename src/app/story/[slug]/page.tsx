@@ -51,7 +51,8 @@ export default function StoryPage() {
     )
   }
 
-  const readingTime = calculateReadingTime(story.content)
+  // Use stored reading time if available, otherwise calculate it
+  const readingTime = story.reading_time || calculateReadingTime(story.content)
 
   // Convert TipTap JSON content to HTML
   const htmlContent = generateHTML(story.content, [

@@ -22,10 +22,12 @@ interface PublishOptions {
   subtitle?: string
   previewImage?: string
   slug?: string
+  readingTime?: number
 }
 
 export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModalProps) {
   const [subtitle, setSubtitle] = React.useState("")
+  const [readingTime, setReadingTime] = React.useState<number>(1)
   const [previewImage, setPreviewImage] = React.useState<string | null>(null)
   const [isPublishing, setIsPublishing] = React.useState(false)
   const [isUploadingImage, setIsUploadingImage] = React.useState(false)
@@ -70,7 +72,7 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
     try {
       const { data, error } = await supabase
         .from('stories')
-        .select('preview_image, subtitle, slug')
+        .select('preview_image, subtitle, slug, reading_time')
         .eq('id', story.id)
         .single()
 
@@ -84,6 +86,9 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
       }
       if (data.slug) {
         setGeneratedSlug(data.slug)
+      }
+      if (data.reading_time) {
+        setReadingTime(data.reading_time)
       }
     } catch (error) {
       console.error('Failed to load existing data:', error)
@@ -212,6 +217,10 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
         updates.subtitle = subtitle
       }
       
+      if (readingTime) {
+        updates.reading_time = readingTime
+      }
+      
       await supabase
         .from('stories')
         .update(updates)
@@ -221,6 +230,7 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
         subtitle,
         previewImage: previewImage || undefined,
         slug: uniqueSlug,
+        readingTime,
       })
       onClose()
     } catch (error) {
@@ -323,6 +333,23 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
                 />
                 <div className="subtitle-hint">
                   A good subtitle provides context and entices readers to continue
+                </div>
+              </div>
+
+              {/* Reading Time Field */}
+              <div className="reading-time-field">
+                <label className="reading-time-label">Reading Time</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="60"
+                  placeholder="1"
+                  value={readingTime}
+                  onChange={(e) => setReadingTime(parseInt(e.target.value) || 1)}
+                  className="reading-time-input"
+                />
+                <div className="reading-time-hint">
+                  Estimated reading time in minutes (e.g., 1 min read, 5 min read)
                 </div>
               </div>
 

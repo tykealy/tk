@@ -74,13 +74,21 @@ export default function PublishedStoriesPage() {
                   )}
                   
                   <div className="flex items-center justify-between text-sm text-gray-500">
-                    <time dateTime={story.published_at}>
-                      {new Date(story.published_at!).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </time>
+                    <div className="flex items-center gap-3">
+                      <time dateTime={story.published_at}>
+                        {new Date(story.published_at!).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </time>
+                      {story.reading_time && (
+                        <span className="text-gray-400">•</span>
+                      )}
+                      {story.reading_time && (
+                        <span>{story.reading_time} min read</span>
+                      )}
+                    </div>
                     
                     <Link 
                       href={`/story/${story.slug}`}

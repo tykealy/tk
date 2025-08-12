@@ -366,6 +366,7 @@ export function SimpleEditor({ storyId, onStoryChange }: SimpleEditorProps) {
       const publishData = {
         subtitle: options.subtitle,
         preview_image: options.previewImage,
+        reading_time: options.readingTime,
         published: true,
         published_at: new Date().toISOString(),
       }

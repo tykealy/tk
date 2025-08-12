@@ -18,6 +18,7 @@ export type Database = {
           slug?: string
           published: boolean
           published_at?: string
+          reading_time?: number
           user_id: string | null
           created_at: string
           updated_at: string
@@ -31,6 +32,7 @@ export type Database = {
           slug?: string
           published?: boolean
           published_at?: string
+          reading_time?: number
           user_id?: string | null
           created_at?: string
           updated_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           slug?: string
           published?: boolean
           published_at?: string
+          reading_time?: number
           user_id?: string | null
           created_at?: string
           updated_at?: string

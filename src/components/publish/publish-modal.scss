@@ -335,6 +335,71 @@
   }
 }
 
+/* Reading Time Input */
+.reading-time-field {
+  margin-bottom: 24px;
+}
+
+.reading-time-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(75, 85, 99, 1);
+  margin-bottom: 8px;
+  
+  .dark & {
+    color: var(--tt-theme-text);
+  }
+}
+
+.reading-time-input {
+  width: 100%;
+  border: 2px solid rgba(229, 231, 235, 1);
+  border-radius: 12px;
+  background: white;
+  padding: 16px 18px;
+  font-size: 16px;
+  color: rgba(75, 85, 99, 1);
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  
+  &:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 1);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  &::placeholder {
+    color: rgba(156, 163, 175, 1);
+  }
+  
+  .dark & {
+    border-color: var(--tt-gray-dark-400);
+    background: var(--tt-gray-dark-100);
+    color: var(--tt-theme-text);
+    
+    &:focus {
+      border-color: rgba(96, 165, 250, 1);
+      box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.1);
+    }
+    
+    &::placeholder {
+      color: var(--tt-gray-dark-500);
+    }
+  }
+}
+
+.reading-time-hint {
+  font-size: 12px;
+  color: rgba(156, 163, 175, 1);
+  margin-top: 6px;
+  
+  .dark & {
+    color: var(--tt-gray-dark-500);
+  }
+}
+
 /* Enhanced Add Image Button */
 .add-image-btn {
   display: flex;
