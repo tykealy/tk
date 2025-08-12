@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useStories } from '@/hooks/use-story'
+import { SimpleAuthGuard } from '@/components/auth/simple-auth-guard'
 
-export default function StoriesPage() {
+function StoriesPageContent() {
   const { stories, loading, deleteStory } = useStories()
 
   if (loading) {
@@ -86,5 +87,13 @@ export default function StoriesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function StoriesPage() {
+  return (
+    <SimpleAuthGuard>
+      <StoriesPageContent />
+    </SimpleAuthGuard>
   )
 }
