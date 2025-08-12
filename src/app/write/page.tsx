@@ -1,10 +1,11 @@
 "use client"
 
+import { Suspense } from "react"
 import { SimpleEditor } from "@/components/tiptap-templates/simple/simple-editor"
 import { SimpleAuthGuard } from "@/components/auth/simple-auth-guard"
 import { useRouter, useSearchParams } from "next/navigation"
 
-export default function WritePage() {
+function WritePageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const storyId = searchParams.get('id') || undefined
@@ -23,5 +24,17 @@ export default function WritePage() {
         onStoryChange={handleStoryChange}
       />
     </SimpleAuthGuard>
+  )
+}
+
+export default function WritePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-gray-600">Loading editor...</div>
+      </div>
+    }>
+      <WritePageContent />
+    </Suspense>
   )
 }
