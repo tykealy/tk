@@ -131,11 +131,38 @@ export function useStories() {
     }
   }
 
+  const unpublishStory = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('stories')
+        .update({ 
+          published: false,
+          published_at: null,
+          slug: null // Remove slug when unpublishing to avoid conflicts
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      
+      setStories(prev => prev.map(story => 
+        story.id === id ? { ...story, published: false, published_at: null, slug: null } : story
+      ))
+      
+      return data
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unpublish')
+      throw err
+    }
+  }
+
   return {
     stories,
     loading,
     error,
     deleteStory,
+    unpublishStory,
     refetch: () => {
       setLoading(true)
       // Trigger useEffect to refetch
