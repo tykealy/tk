@@ -143,3 +143,77 @@ export function useStories() {
     }
   }
 }
+
+// Add hook for fetching published stories by slug
+export function usePublishedStory(slug?: string) {
+  const [story, setStory] = useState<Story | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!slug) {
+      setLoading(false)
+      return
+    }
+
+    async function fetchPublishedStory() {
+      try {
+        const { data, error } = await supabase
+          .from('stories')
+          .select('*')
+          .eq('slug', slug)
+          .eq('published', true)
+          .single()
+
+        if (error) throw error
+        setStory(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Story not found')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPublishedStory()
+  }, [slug])
+
+  return {
+    story,
+    loading,
+    error,
+  }
+}
+
+// Add hook for fetching all published stories
+export function usePublishedStories() {
+  const [stories, setStories] = useState<Story[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchPublishedStories() {
+      try {
+        const { data, error } = await supabase
+          .from('stories')
+          .select('*')
+          .eq('published', true)
+          .order('published_at', { ascending: false })
+
+        if (error) throw error
+        setStories(data || [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPublishedStories()
+  }, [])
+
+  return {
+    stories,
+    loading,
+    error,
+  }
+}

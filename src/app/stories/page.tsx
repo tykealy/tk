@@ -33,10 +33,36 @@ export default function StoriesPage() {
                 >
                   {story.title}
                 </Link>
-                <p className="text-gray-500 text-sm mt-1">
-                  Updated {new Date(story.updated_at).toLocaleDateString()}
-                </p>
+                
+                {story.subtitle && (
+                  <p className="text-gray-600 text-sm mt-1">
+                    {story.subtitle}
+                  </p>
+                )}
+                
+                <div className="flex items-center gap-4 mt-2">
+                  <p className="text-gray-500 text-sm">
+                    Updated {new Date(story.updated_at).toLocaleDateString()}
+                  </p>
+                  
+                  {story.published && story.slug && (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Published
+                      </span>
+                      <Link 
+                        href={`/story/${story.slug}`}
+                        className="text-blue-500 hover:text-blue-700 text-sm"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View →
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
+              
               <button
                 onClick={() => deleteStory(story.id)}
                 className="text-red-500 hover:text-red-700 text-sm"
