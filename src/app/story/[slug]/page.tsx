@@ -1,8 +1,6 @@
-"use client"
-
-import './page.scss'
-import { useParams } from 'next/navigation'
-import { usePublishedStory } from '@/hooks/use-story'
+import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
 import { generateHTML } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -14,106 +12,227 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
 import Underline from '@tiptap/extension-underline'
+import './page.scss'
 
-// Import custom extensions
-import ImageUploadNode from '@/components/tiptap-node/image-upload-node/image-upload-node-extension'
+// Import custom extensions (you may need to adjust these for server-side)
 import HorizontalRule from '@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension'
-import { ThemeToggle } from '@/components/tiptap-templates/simple/theme-toggle'
+import { ThemeToggleClient } from '@/app/story/[slug]/theme-toggle-client' // We'll create this
+import { StoryContent } from './story-content'
 
-// Calculate reading time
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+type Story = {
+  id: string
+  title: string
+  content: any
+  subtitle?: string
+  preview_image?: string
+  slug: string
+  published: boolean
+  published_at: string
+  reading_time?: number
+  user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+async function getStory(slug: string): Promise<Story | null> {
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('slug', slug)
+      .eq('published', true)
+      .single()
+
+    if (error) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+function extractTextFromContent(content: any): string {
+  if (!content) return ''
+  
+  function extractFromNode(node: any): string {
+    let text = ''
+    if (node.text) {
+      text += node.text
+    }
+    if (node.content) {
+      for (const child of node.content) {
+        text += extractFromNode(child)
+      }
+    }
+    return text
+  }
+  
+  return extractFromNode(content)
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  console.log('generateMetadata called')
+  const { slug } = await params
+  console.log('Processing slug:', slug)
+  
+  const story = await getStory(slug)
+  console.log('Story found:', !!story, story?.title)
+  
+  if (!story) {
+    console.log('No story found, returning 404 metadata')
+    return {
+      title: 'Story Not Found',
+      description: 'The requested story could not be found.'
+    }
+  }
+  
+  const excerpt = story.subtitle || extractTextFromContent(story.content).substring(0, 160)
+  const publishedDate = new Date(story.published_at).toISOString()
+  
+  console.log('Generating metadata for:', story.title)
+  
+  return {
+    title: story.title,
+    description: excerpt,
+    keywords: [story.title.split(' '), 'story', 'article', 'blog'].flat(),
+    authors: [{ name: 'TK Stories Author' }],
+    openGraph: {
+      type: 'article',
+      title: story.title,
+      description: excerpt,
+      url: `/story/${story.slug}`,
+      publishedTime: publishedDate,
+      images: story.preview_image ? [
+        {
+          url: story.preview_image,
+          width: 1200,
+          height: 630,
+          alt: story.title
+        }
+      ] : [],
+      authors: ['TK Stories'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: story.title,
+      description: excerpt,
+      images: story.preview_image ? [story.preview_image] : [],
+    },
+    alternates: {
+      canonical: `/story/${story.slug}`,
+    }
+  }
+}
+
 function calculateReadingTime(content: any): number {
   if (!content) return 0
-  const text = JSON.stringify(content)
+  const text = extractTextFromContent(content)
   const wordsPerMinute = 200
   const words = text.split(/\s+/).length
   return Math.ceil(words / wordsPerMinute)
 }
 
-export default function StoryPage() {
-  const params = useParams()
-  const slug = params.slug as string
-  const { story, loading, error } = usePublishedStory(slug)
-
-  if (loading) {
-    return (
-      <div className="minimal-loading">
-        <div className="loading-spinner"></div>
-      </div>
-    )
-  }
-
-  if (error || !story) {
-    return (
-      <div className="minimal-error">
-        <h1>Story not found</h1>
-        <a href="/">← Back</a>
-      </div>
-    )
-  }
-
-  // Use stored reading time if available, otherwise calculate it
+// JSON-LD structured data
+function generateArticleStructuredData(story: Story) {
   const readingTime = story.reading_time || calculateReadingTime(story.content)
+  
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: story.title,
+    description: story.subtitle || extractTextFromContent(story.content).substring(0, 160),
+    image: story.preview_image ? [story.preview_image] : [],
+    author: {
+      '@type': 'Organization',
+      name: 'TK Stories'
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'TK Stories',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${process.env.NEXT_PUBLIC_BASE_URL}/logo.png` // You'll need to create this
+      }
+    },
+    datePublished: story.published_at,
+    dateModified: story.updated_at,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${process.env.NEXT_PUBLIC_BASE_URL}/story/${story.slug}`
+    },
+    wordCount: extractTextFromContent(story.content).split(/\s+/).length,
+    timeRequired: `PT${readingTime}M`,
+    url: `${process.env.NEXT_PUBLIC_BASE_URL}/story/${story.slug}`
+  }
+}
 
-  // Convert TipTap JSON content to HTML
-  const htmlContent = generateHTML(story.content, [
-    StarterKit,
-    Image,
-    Link.configure({
-      openOnClick: false,
-    }),
-    Highlight,
-    TextAlign.configure({
-      types: ['heading', 'paragraph'],
-    }),
-    Color,
-    TextStyle,
-    Subscript,
-    Superscript,
-    Underline,
-    ImageUploadNode,
-    HorizontalRule,
-  ])
-
+export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const story = await getStory(slug)
+  
+  if (!story) {
+    notFound()
+  }
+  
+  const readingTime = story.reading_time || calculateReadingTime(story.content)
+  
   return (
-    <div className="minimal-container">
-      {/* Theme toggle - positioned absolutely in top right */}
-      <div className="minimal-theme-toggle">
-        <ThemeToggle />
-      </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateArticleStructuredData(story))
+        }}
+      />
       
-      <article className="minimal-story">
-        <header className="minimal-header">
-          <h1 className="minimal-title">{story.title}</h1>
-          
-          {story.subtitle && (
-            <h2 className="minimal-subtitle">{story.subtitle}</h2>
-          )}
+      <div className="minimal-container">
+        <div className="minimal-theme-toggle">
+          <ThemeToggleClient />
+        </div>
+        
+        <article className="minimal-story">
+          <header className="minimal-header">
+            <h1 className="minimal-title">{story.title}</h1>
+            
+            {story.subtitle && (
+              <h2 className="minimal-subtitle">{story.subtitle}</h2>
+            )}
 
-          <div className="minimal-meta">
-            <span className="minimal-date">
-              {new Date(story.published_at!).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              })}
-            </span>
-            <span className="minimal-reading-time">{readingTime} min read</span>
-          </div>
-
-          {story.preview_image && (
-            <div className="minimal-image">
-              <img src={story.preview_image} alt={story.title} />
+            <div className="minimal-meta">
+              <time 
+                className="minimal-date"
+                dateTime={story.published_at}
+              >
+                {new Date(story.published_at).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </time>
+              <span className="minimal-reading-time">{readingTime} min read</span>
             </div>
-          )}
-        </header>
 
-        <main className="minimal-content">
-          <div 
-            className="minimal-prose"
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
-          />
-        </main>
-      </article>
-    </div>
+            {story.preview_image && (
+              <div className="minimal-image">
+                <img 
+                  src={story.preview_image} 
+                  alt={story.title}
+                  width={800}
+                  height={400}
+                />
+              </div>
+            )}
+          </header>
+
+          <main className="minimal-content">
+            <StoryContent content={story.content} />
+          </main>
+        </article>
+      </div>
+    </>
   )
 }
