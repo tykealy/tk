@@ -1,22 +1,9 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { generateHTML } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import Image from 'next/image'
-import TiptapImage from '@tiptap/extension-image'
-import Link from '@tiptap/extension-link'
-import Highlight from '@tiptap/extension-highlight'
-import TextAlign from '@tiptap/extension-text-align'
-import { Color } from '@tiptap/extension-color'
-import { TextStyle } from '@tiptap/extension-text-style'
-import Subscript from '@tiptap/extension-subscript'
-import Superscript from '@tiptap/extension-superscript'
-import Underline from '@tiptap/extension-underline'
 import './page.scss'
 
-// Import custom extensions
-import HorizontalRule from '@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension'
 import { ThemeToggleClient } from '@/app/story/[slug]/theme-toggle-client'
 import { StoryContent } from './story-content'
 
@@ -175,12 +162,37 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const canonicalUrl = `${baseUrl}/story/${story.slug}`
   
   // Ensure image URL is absolute (important for Telegram and other platforms)
-  const imageUrl = story.preview_image 
+  let imageUrl = story.preview_image 
     ? (story.preview_image.startsWith('http') ? story.preview_image : `${baseUrl}${story.preview_image}`)
     : `${baseUrl}/og-image.jpg`
   
+  // CRITICAL FIX FOR TELEGRAM: Use Next.js Image Optimization to compress large images
+  // This creates a smaller, optimized version specifically for social media previews
+  // Telegram has file size limits (~5MB) and the original image is 6.7MB
+  if (story.preview_image && story.preview_image.startsWith('http')) {
+    // Create an optimized version using Next.js image optimization
+    // This will compress the image and reduce file size for better Telegram compatibility
+    imageUrl = `${baseUrl}/_next/image?url=${encodeURIComponent(story.preview_image)}&w=1200&q=75`
+  }
+  
+  // Detect image type from URL extension
+  const getImageType = (url: string): string => {
+    const ext = url.split('.').pop()?.toLowerCase()
+    const typeMap: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+    }
+    return typeMap[ext || ''] || 'image/jpeg'
+  }
+  
+  const imageType = getImageType(imageUrl)
+  
   console.log('Generating metadata for:', story.title)
   console.log('Image URL:', imageUrl)
+  console.log('Image Type:', imageType)
   
   return {
     title: story.title,
@@ -199,10 +211,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       images: [
         {
           url: imageUrl,
+          secureUrl: imageUrl, // Telegram specifically looks for this
           width: 1200,
           height: 630,
           alt: story.title,
-          type: 'image/jpeg',
+          type: imageType,
         }
       ],
     },
@@ -215,11 +228,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     alternates: {
       canonical: canonicalUrl,
-    },
-    // Additional metadata that helps with some platforms
-    other: {
-      'og:image:secure_url': imageUrl,
-      'telegram:channel': '@tkstories', // Optional: add your Telegram channel
     }
   }
 }
