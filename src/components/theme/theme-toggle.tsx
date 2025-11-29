@@ -4,33 +4,33 @@ import * as React from "react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { MoonStarIcon } from "../tiptap-icons/moon-star-icon"
 import { SunIcon } from "../tiptap-icons/sun-icon"
+import { useTheme } from "./theme-provider"
 
 export function ThemeToggle() {
-  const [isDarkMode, setIsDarkMode] = React.useState<boolean>(false)
+  const { theme, toggleTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleChange = () => setIsDarkMode(mediaQuery.matches)
-    mediaQuery.addEventListener("change", handleChange)
-    return () => mediaQuery.removeEventListener("change", handleChange)
+    setMounted(true)
   }, [])
 
-  React.useEffect(() => {
-    const initialDarkMode =
-      !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    setIsDarkMode(initialDarkMode)
-  }, [])
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <Button
+        aria-label="Toggle theme"
+        data-style="ghost"
+      >
+        <SunIcon className="tiptap-button-icon" />
+      </Button>
+    )
+  }
 
-  React.useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode)
-  }, [isDarkMode])
-
-  const toggleDarkMode = () => setIsDarkMode((isDark) => !isDark)
+  const isDarkMode = theme === "dark"
 
   return (
     <Button
-      onClick={toggleDarkMode}
+      onClick={toggleTheme}
       aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
       data-style="ghost"
     >

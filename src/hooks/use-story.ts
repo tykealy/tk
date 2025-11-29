@@ -147,7 +147,7 @@ export function useStories() {
       if (error) throw error
       
       setStories(prev => prev.map(story => 
-        story.id === id ? { ...story, published: false, published_at: null, slug: null } : story
+        story.id === id ? { ...story, published: false, published_at: undefined, slug: undefined } : story
       ))
       
       return data
