@@ -174,7 +174,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const baseUrl = getBaseUrl()
   const canonicalUrl = `${baseUrl}/story/${story.slug}`
   
+  // Ensure image URL is absolute (important for Telegram and other platforms)
+  const imageUrl = story.preview_image 
+    ? (story.preview_image.startsWith('http') ? story.preview_image : `${baseUrl}${story.preview_image}`)
+    : `${baseUrl}/og-image.jpg`
+  
   console.log('Generating metadata for:', story.title)
+  console.log('Image URL:', imageUrl)
   
   return {
     title: story.title,
@@ -185,26 +191,35 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title: story.title,
       description: description,
       url: canonicalUrl,
+      siteName: 'TK Stories',
+      locale: 'en_US',
       publishedTime: publishedDate,
       modifiedTime: new Date(story.updated_at).toISOString(),
       authors: [authorName],
-      images: story.preview_image ? [
+      images: [
         {
-          url: story.preview_image,
+          url: imageUrl,
           width: 1200,
           height: 630,
-          alt: story.title
+          alt: story.title,
+          type: 'image/jpeg',
         }
-      ] : [],
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title: story.title,
       description: description,
-      images: story.preview_image ? [story.preview_image] : [],
+      images: [imageUrl],
+      creator: authorName,
     },
     alternates: {
       canonical: canonicalUrl,
+    },
+    // Additional metadata that helps with some platforms
+    other: {
+      'og:image:secure_url': imageUrl,
+      'telegram:channel': '@tkstories', // Optional: add your Telegram channel
     }
   }
 }
@@ -223,12 +238,17 @@ function generateArticleStructuredData(story: Story, author: Author | null) {
   const baseUrl = getBaseUrl()
   const authorName = author?.full_name || author?.email || 'TK Stories'
   
+  // Ensure image URL is absolute
+  const imageUrl = story.preview_image 
+    ? (story.preview_image.startsWith('http') ? story.preview_image : `${baseUrl}${story.preview_image}`)
+    : `${baseUrl}/og-image.jpg`
+  
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: story.title,
     description: extractSmartDescription(story.content, story.subtitle),
-    image: story.preview_image ? [story.preview_image] : [],
+    image: [imageUrl],
     author: {
       '@type': author?.full_name ? 'Person' : 'Organization',
       name: authorName,
