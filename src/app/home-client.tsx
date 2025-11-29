@@ -21,74 +21,65 @@ interface HomeClientProps {
 export function HomeClient({ stories }: HomeClientProps) {
   return (
     <div className="home-container">
-      <div className="home-content">
-        <div className="home-theme-toggle">
-          <ThemeToggle />
-        </div>
+      <nav className="home-nav">
+        <Link href="/write" className="home-nav-write">
+          Write
+        </Link>
+        <ThemeToggle />
+      </nav>
 
+      <div className="home-content">
         <header className="home-header">
-          <h1 className="home-title">Published Stories</h1>
-          <p className="home-subtitle">Discover amazing stories from our community</p>
+          <h1 className="home-title">Stories</h1>
         </header>
 
         {stories.length === 0 ? (
           <div className="home-empty">
-            <p className="home-empty-text">No published stories yet.</p>
-            <Link href="/write" className="home-empty-link">
-              Be the first to publish a story →
-            </Link>
+            <p>No stories yet</p>
+            <Link href="/write">Write the first one</Link>
           </div>
         ) : (
-          <div className="home-grid">
+          <div className="home-stories">
             {stories.map((story) => (
-              <article key={story.id} className="home-card">
-                {story.preview_image && (
-                  <div className="home-card-image">
-                    <img 
-                      src={story.preview_image} 
-                      alt={story.title}
-                      width={400}
-                      height={225}
-                    />
-                  </div>
-                )}
-                
-                <div className="home-card-content">
-                  <h2 className="home-card-title">
-                    <Link href={`/story/${story.slug}`}>
-                      {story.title}
-                    </Link>
-                  </h2>
-                  
-                  {story.subtitle && (
-                    <p className="home-card-subtitle">
-                      {story.subtitle}
-                    </p>
+              <Link 
+                key={story.id} 
+                href={`/story/${story.slug}`} 
+                className="home-story"
+              >
+                <article>
+                  {story.preview_image && (
+                    <div className="home-story-image">
+                      <img 
+                        src={story.preview_image} 
+                        alt={story.title}
+                      />
+                    </div>
                   )}
                   
-                  <div className="home-card-meta">
-                    <div className="home-card-meta-info">
-                      <time dateTime={story.published_at}>
-                        {story.published_at && new Date(story.published_at).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric"
-                        })}
-                      </time>
+                  <div className="home-story-content">
+                    <h2 className="home-story-title">{story.title}</h2>
+                    
+                    {story.subtitle && (
+                      <p className="home-story-subtitle">{story.subtitle}</p>
+                    )}
+                    
+                    <div className="home-story-meta">
+                      {story.published_at && (
+                        <time dateTime={story.published_at}>
+                          {new Date(story.published_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric"
+                          })}
+                        </time>
+                      )}
                       {story.reading_time && (
-                        <>
-                          <span className="home-card-meta-separator">•</span>
-                          <span>{story.reading_time} min read</span>
-                        </>
+                        <span>{story.reading_time} min</span>
                       )}
                     </div>
-                    
-                    <Link href={`/story/${story.slug}`} className="home-card-link">
-                      Read more →
-                    </Link>
                   </div>
-                </div>
-              </article>
+                </article>
+              </Link>
             ))}
           </div>
         )}
