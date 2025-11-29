@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { generateHTML } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
+import Image from 'next/image'
+import TiptapImage from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
@@ -14,9 +15,9 @@ import Superscript from '@tiptap/extension-superscript'
 import Underline from '@tiptap/extension-underline'
 import './page.scss'
 
-// Import custom extensions (you may need to adjust these for server-side)
+// Import custom extensions
 import HorizontalRule from '@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension'
-import { ThemeToggleClient } from '@/app/story/[slug]/theme-toggle-client' // We'll create this
+import { ThemeToggleClient } from '@/app/story/[slug]/theme-toggle-client'
 import { StoryContent } from './story-content'
 
 const supabase = createClient(
@@ -39,6 +40,13 @@ type Story = {
   updated_at: string
 }
 
+type Author = {
+  id: string
+  email?: string
+  full_name?: string
+  avatar_url?: string
+}
+
 async function getStory(slug: string): Promise<Story | null> {
   try {
     const { data, error } = await supabase
@@ -46,6 +54,23 @@ async function getStory(slug: string): Promise<Story | null> {
       .select('*')
       .eq('slug', slug)
       .eq('published', true)
+      .single()
+
+    if (error) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+async function getAuthor(userId: string | null): Promise<Author | null> {
+  if (!userId) return null
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url')
+      .eq('id', userId)
       .single()
 
     if (error) return null
@@ -74,6 +99,56 @@ function extractTextFromContent(content: any): string {
   return extractFromNode(content)
 }
 
+function extractSmartDescription(content: any, subtitle?: string, maxLength: number = 160): string {
+  // Use subtitle if available
+  if (subtitle && subtitle.trim()) {
+    return subtitle.length > maxLength 
+      ? subtitle.substring(0, maxLength - 3) + '...' 
+      : subtitle
+  }
+
+  const fullText = extractTextFromContent(content).trim()
+  if (!fullText) return 'Read this story on TK Stories.'
+
+  // Try to extract first complete paragraph
+  const paragraphs = fullText.split(/\n\n+/)
+  const firstParagraph = paragraphs[0]?.trim() || ''
+
+  if (firstParagraph.length <= maxLength) {
+    return firstParagraph
+  }
+
+  // Find last complete sentence within maxLength
+  const truncated = firstParagraph.substring(0, maxLength)
+  const lastSentenceEnd = Math.max(
+    truncated.lastIndexOf('.'),
+    truncated.lastIndexOf('!'),
+    truncated.lastIndexOf('?')
+  )
+
+  if (lastSentenceEnd > 60) {
+    // If we found a sentence ending and it's not too short
+    return truncated.substring(0, lastSentenceEnd + 1)
+  }
+
+  // Fall back to word boundary
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > 0) {
+    return truncated.substring(0, lastSpace) + '...'
+  }
+
+  return truncated + '...'
+}
+
+function getBaseUrl(): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  if (!baseUrl) {
+    return 'http://localhost:3000'
+  }
+  // Ensure it starts with http:// or https://
+  return baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   console.log('generateMetadata called')
   const { slug } = await params
@@ -89,23 +164,30 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: 'The requested story could not be found.'
     }
   }
+
+  // Fetch author information
+  const author = await getAuthor(story.user_id)
+  const authorName = author?.full_name || author?.email || 'TK Stories Author'
   
-  const excerpt = story.subtitle || extractTextFromContent(story.content).substring(0, 160)
+  const description = extractSmartDescription(story.content, story.subtitle)
   const publishedDate = new Date(story.published_at).toISOString()
+  const baseUrl = getBaseUrl()
+  const canonicalUrl = `${baseUrl}/story/${story.slug}`
   
   console.log('Generating metadata for:', story.title)
   
   return {
     title: story.title,
-    description: excerpt,
-    keywords: [story.title.split(' '), 'story', 'article', 'blog'].flat(),
-    authors: [{ name: 'TK Stories Author' }],
+    description: description,
+    authors: [{ name: authorName }],
     openGraph: {
       type: 'article',
       title: story.title,
-      description: excerpt,
-      url: `/story/${story.slug}`,
+      description: description,
+      url: canonicalUrl,
       publishedTime: publishedDate,
+      modifiedTime: new Date(story.updated_at).toISOString(),
+      authors: [authorName],
       images: story.preview_image ? [
         {
           url: story.preview_image,
@@ -114,16 +196,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
           alt: story.title
         }
       ] : [],
-      authors: ['TK Stories'],
     },
     twitter: {
       card: 'summary_large_image',
       title: story.title,
-      description: excerpt,
+      description: description,
       images: story.preview_image ? [story.preview_image] : [],
     },
     alternates: {
-      canonical: `/story/${story.slug}`,
+      canonical: canonicalUrl,
     }
   }
 }
@@ -137,36 +218,39 @@ function calculateReadingTime(content: any): number {
 }
 
 // JSON-LD structured data
-function generateArticleStructuredData(story: Story) {
+function generateArticleStructuredData(story: Story, author: Author | null) {
   const readingTime = story.reading_time || calculateReadingTime(story.content)
+  const baseUrl = getBaseUrl()
+  const authorName = author?.full_name || author?.email || 'TK Stories'
   
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: story.title,
-    description: story.subtitle || extractTextFromContent(story.content).substring(0, 160),
+    description: extractSmartDescription(story.content, story.subtitle),
     image: story.preview_image ? [story.preview_image] : [],
     author: {
-      '@type': 'Organization',
-      name: 'TK Stories'
+      '@type': author?.full_name ? 'Person' : 'Organization',
+      name: authorName,
+      ...(author?.avatar_url && { image: author.avatar_url }),
     },
     publisher: {
       '@type': 'Organization',
       name: 'TK Stories',
       logo: {
         '@type': 'ImageObject',
-        url: `${process.env.NEXT_PUBLIC_BASE_URL}/logo.png` // You'll need to create this
+        url: `${baseUrl}/logo.png`
       }
     },
     datePublished: story.published_at,
     dateModified: story.updated_at,
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `${process.env.NEXT_PUBLIC_BASE_URL}/story/${story.slug}`
+      '@id': `${baseUrl}/story/${story.slug}`
     },
     wordCount: extractTextFromContent(story.content).split(/\s+/).length,
     timeRequired: `PT${readingTime}M`,
-    url: `${process.env.NEXT_PUBLIC_BASE_URL}/story/${story.slug}`
+    url: `${baseUrl}/story/${story.slug}`
   }
 }
 
@@ -177,6 +261,10 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
   if (!story) {
     notFound()
   }
+
+  // Fetch author information
+  const author = await getAuthor(story.user_id)
+  const authorName = author?.full_name || author?.email || 'Anonymous'
   
   const readingTime = story.reading_time || calculateReadingTime(story.content)
   
@@ -185,7 +273,7 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(generateArticleStructuredData(story))
+          __html: JSON.stringify(generateArticleStructuredData(story, author))
         }}
       />
       
@@ -213,16 +301,27 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
                   year: 'numeric'
                 })}
               </time>
+              <span className="minimal-separator">·</span>
               <span className="minimal-reading-time">{readingTime} min read</span>
+              <span className="minimal-separator">·</span>
+              <span className="minimal-author" rel="author">{authorName}</span>
             </div>
 
             {story.preview_image && (
               <div className="minimal-image">
-                <img 
+                <Image 
                   src={story.preview_image} 
                   alt={story.title}
-                  width={800}
-                  height={400}
+                  width={1200}
+                  height={630}
+                  priority
+                  quality={90}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    objectFit: 'cover'
+                  }}
                 />
               </div>
             )}
