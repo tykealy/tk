@@ -206,11 +206,22 @@ export function PublishModal({ isOpen, onClose, story, onPublish }: PublishModal
       // Generate unique slug
       const uniqueSlug = await generateUniqueSlug(story.title, story.id)
       
+      // Check if story is already published to preserve published_at
+      const { data: existingStory } = await supabase
+        .from('stories')
+        .select('published, published_at')
+        .eq('id', story.id)
+        .single()
+      
       // Save subtitle and slug to database if changed
       const updates: any = {
         published: true,
-        published_at: new Date().toISOString(),
         slug: uniqueSlug
+      }
+      
+      // Only set published_at if this is the first time publishing
+      if (!existingStory?.published || !existingStory?.published_at) {
+        updates.published_at = new Date().toISOString()
       }
       
       if (subtitle) {

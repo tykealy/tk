@@ -363,12 +363,16 @@ export function SimpleEditor({ storyId, onStoryChange }: SimpleEditorProps) {
       }
 
       // Update the story with publishing information
-      const publishData = {
+      const publishData: any = {
         subtitle: options.subtitle,
         preview_image: options.previewImage,
         reading_time: options.readingTime,
         published: true,
-        published_at: new Date().toISOString(),
+      }
+      
+      // Only set published_at if this is the first time publishing
+      if (!story?.published || !story?.published_at) {
+        publishData.published_at = new Date().toISOString()
       }
       
       console.log('Saving publish data:', publishData) // Debug log
