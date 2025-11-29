@@ -12,6 +12,7 @@ interface Story {
   preview_image?: string
   published_at?: string
   reading_time?: number
+  view_count?: number
 }
 
 interface HomeClientProps {
@@ -75,6 +76,9 @@ export function HomeClient({ stories }: HomeClientProps) {
                       )}
                       {story.reading_time && (
                         <span>{story.reading_time} min</span>
+                      )}
+                      {story.view_count !== undefined && story.view_count > 0 && (
+                        <span>{story.view_count.toLocaleString()} {story.view_count === 1 ? "view" : "views"}</span>
                       )}
                     </div>
                   </div>

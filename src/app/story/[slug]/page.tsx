@@ -6,6 +6,7 @@ import './page.scss'
 
 import { ThemeToggleClient } from '@/app/story/[slug]/theme-toggle-client'
 import { StoryContent } from './story-content'
+import { ViewTracker } from './view-tracker'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +23,7 @@ type Story = {
   published: boolean
   published_at: string
   reading_time?: number
+  view_count?: number
   user_id: string | null
   created_at: string
   updated_at: string
@@ -137,12 +139,8 @@ function getBaseUrl(): string {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  console.log('generateMetadata called')
   const { slug } = await params
-  console.log('Processing slug:', slug)
-  
   const story = await getStory(slug)
-  console.log('Story found:', !!story, story?.title)
   
   if (!story) {
     console.log('No story found, returning 404 metadata')
@@ -156,7 +154,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const author = await getAuthor(story.user_id)
   const authorName = author?.full_name || author?.email || 'TK Stories Author'
   
-  const description = extractSmartDescription(story.content, story.subtitle)
+  const baseDescription = extractSmartDescription(story.content, story.subtitle)
+  // Add view count to description if available
+  const description = story.view_count && story.view_count > 0 
+    ? `${baseDescription} • ${story.view_count.toLocaleString()} ${story.view_count === 1 ? 'view' : 'views'}`
+    : baseDescription
   const publishedDate = new Date(story.published_at).toISOString()
   const baseUrl = getBaseUrl()
   const canonicalUrl = `${baseUrl}/story/${story.slug}`
@@ -228,6 +230,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     alternates: {
       canonical: canonicalUrl,
+    },
+    other: {
+      ...(story.view_count && story.view_count > 0 && {
+        'article:view_count': story.view_count.toString(),
+        'analytics:views': story.view_count.toString(),
+      })
     }
   }
 }
@@ -278,7 +286,14 @@ function generateArticleStructuredData(story: Story, author: Author | null) {
     },
     wordCount: extractTextFromContent(story.content).split(/\s+/).length,
     timeRequired: `PT${readingTime}M`,
-    url: `${baseUrl}/story/${story.slug}`
+    url: `${baseUrl}/story/${story.slug}`,
+    ...(story.view_count && story.view_count > 0 && {
+      interactionStatistic: {
+        '@type': 'InteractionCounter',
+        interactionType: 'https://schema.org/ReadAction',
+        userInteractionCount: story.view_count
+      }
+    })
   }
 }
 
@@ -298,6 +313,8 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
   
   return (
     <>
+      <ViewTracker storyId={story.id} />
+      
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -331,6 +348,12 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
               </time>
               <span className="minimal-separator">·</span>
               <span className="minimal-reading-time">{readingTime} min read</span>
+              {story.view_count !== undefined && story.view_count > 0 && (
+                <>
+                  <span className="minimal-separator">·</span>
+                  <span className="minimal-views">{story.view_count.toLocaleString()} {story.view_count === 1 ? 'view' : 'views'}</span>
+                </>
+              )}
               <span className="minimal-separator">·</span>
               <span className="minimal-author" rel="author">{authorName}</span>
             </div>
