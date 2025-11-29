@@ -192,10 +192,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   const imageType = getImageType(imageUrl)
   
-  console.log('Generating metadata for:', story.title)
-  console.log('Image URL:', imageUrl)
-  console.log('Image Type:', imageType)
-  
   return {
     title: story.title,
     description: description,
@@ -307,7 +303,7 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
 
   // Fetch author information
   const author = await getAuthor(story.user_id)
-  const authorName = author?.full_name || author?.email || 'Anonymous'
+  const authorName = author?.full_name || author?.email || 'TK'
   
   const readingTime = story.reading_time || calculateReadingTime(story.content)
   
